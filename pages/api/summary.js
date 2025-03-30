@@ -1,36 +1,36 @@
 import { sanitizeQuery } from '../../utils/privacyUtils';
 import { fetchFromEngines } from '../../utils/searchEngines';
 import { generateSummary } from '../../utils/summarization';
-
 export default async function handler(req, res) {
-  const { q } = req.query;
-  
-  if (!q) {
-    return res.status(400).json({ error: 'Query parameter is required' });
+  // Validate query parameter
+  if (typeof req.query.q !== 'string' || !req.query.q.trim()) {
+    return res.status(400).json({ 
+      error: 'Valid query parameter (q) is required',
+      example: '/api/summary?q=hello' 
+    });
   }
 
   try {
-    // Sanitize the query to prevent tracking
-    const sanitizedQuery = sanitizeQuery(q);
+    const sanitizedQuery = req.query.q.trim();
+    console.log(`Generating summary for: "${sanitizedQuery}"`);
     
-    // Fetch results from search engines
+    // Rest of your existing summary logic...
     const results = await fetchFromEngines(sanitizedQuery);
-    
-    // Extract relevant text for summarization
-    const contextText = results
-      .slice(0, 5)
-      .map(r => `${r.title}: ${r.snippet}`)
-      .join('\n\n');
-    
-    // Generate summary using our free summarization utility
+    const contextText = results.slice(0, 5).map(r => `${r.title}: ${r.snippet}`).join('\n\n');
     const summary = generateSummary(contextText, sanitizedQuery);
     
-    res.status(200).json({ summary });
+    return res.status(200).json({ 
+      success: true,
+      summary: summary || 'No summary could be generated',
+      query: sanitizedQuery
+    });
+    
   } catch (error) {
     console.error('Summary API error:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to generate summary',
-      fallbackSummary: `Here are search results for "${q}".`
+      details: error.message,
+      fallbackSummary: `Showing results for "${req.query.q}"` 
     });
   }
 }
